@@ -969,6 +969,9 @@ fu! s:SetWD(args)
 	en
 	if pmode =~ 'r' || pmode == 2
 		let markers = ['.git', '.hg', '.svn', '.bzr', '_darcs']
+        if exists("g:ctrlp_project_root_markers")
+          let markers = g:ctrlp_project_root_markers
+        endif
 		let spath = pmode =~ 'd' ? s:dyncwd : pmode =~ 'w' ? s:cwd : s:crfpath
 		if type(s:rmarkers) == 3 && !empty(s:rmarkers)
 			if s:findroot(spath, s:rmarkers, 0, 0) != [] | retu | en
@@ -1574,6 +1577,7 @@ fu! s:findroot(curr, mark, depth, type)
 	en
 	if fnd
 		if !a:type | cal ctrlp#setdir(a:curr) | en
+        call s:readContentsOfVimWorkspaceFileAndSetCtrlPUserCommand(a:curr.'/'.markr)
 		retu [exists('markr') ? markr : a:mark, a:curr]
 	elsei depth > s:maxdepth
 		cal ctrlp#setdir(s:cwd)
@@ -1585,6 +1589,28 @@ fu! s:findroot(curr, mark, depth, type)
 	en
 	retu []
 endf
+
+" Dan Barrese 2015.03.12
+let g:ctrlp_closed_projects = ''
+fun! s:readContentsOfVimWorkspaceFileAndSetCtrlPUserCommand(path_to_vimworkspace_file)
+    "TODO: write this function in Vimscript
+    let l:addl_find_cmd = ShellExecute('!get-closed-vim-projects '.a:path_to_vimworkspace_file)
+
+    if l:addl_find_cmd != g:ctrlp_closed_projects
+        let g:ctrlp_closed_projects = l:addl_find_cmd
+
+        "TODO: write this in Vimscript.
+        "TODO: just clear the cache for this path.
+        call ShellExecute('!clear-ctrlp-cache')
+        " try just setting g:ctrlp_newcache = true
+    endif
+    if exists('g:ctrlp_user_command_addl_exclusions')
+        let l:addl_find_cmd .= g:ctrlp_user_command_addl_exclusions
+    endif
+    let g:ctrlp_user_command = 'find %s -type f '.l:addl_find_cmd
+    let s:usrcmd = g:ctrlp_user_command
+    exec "!echo '".s:usrcmd."' > ~/usrcmd.txt"
+endfun
 
 fu! ctrlp#setdir(path, ...)
 	let cmd = a:0 ? a:1 : 'lc!'
